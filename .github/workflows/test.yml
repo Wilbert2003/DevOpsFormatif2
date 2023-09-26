@@ -1,22 +1,37 @@
-name: on-push-do-docs
+name: HTML Validation
+
 on:
   push:
+    branches:
+      - main
+
 jobs:
-  docs:
-    runs-on: windows-latest
+  build:
+    runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v2
-    - name: Run MarkdownSnippets
-      run: |
-        dotnet tool install --global MarkdownSnippets.Tool
-        mdsnippets ${GITHUB_WORKSPACE}
-      shell: bash
-    - name: Push changes
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git commit -m "Docs changes" -a || echo "nothing to commit"
-        remote="https://${GITHUB_ACTOR}:${{secrets.GITHUB_TOKEN}}@github.com/${GITHUB_REPOSITORY}.git"
-        branch="${GITHUB_REF:11}"
-        git push "${remote}" ${branch} || echo "nothing to push"
-      shell: bash
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+
+    - name: Install Dependencies
+      run: npm install htmlhint
+
+    - name: Run HTML Validation
+      run: npx htmlhint "**/*.html"
+
+    - name: Save HTML Validation Report
+      if: failure()
+      run: npx htmlhint "**/*.html" --format checkstyle > checkstyle.xml
+      continue-on-error: true
+
+    - name: Upload Validation Report
+      if: failure()
+      uses: actions/upload-artifact@v2
+      with:
+        name: html-validation-report
+        path: checkstyle.xml
